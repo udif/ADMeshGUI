@@ -179,6 +179,8 @@ public slots:
      */
     void setAllActive();
 
+    bool deselectPlane();
+    void setPlaneSelection(bool select);
     /*!
      * \brief Set all objects ainctive.
      */
@@ -307,15 +309,26 @@ public slots:
      */
     void rotateX();
 
-    /*!
+   
+    void cut();
+    void showPlane();
+    void resetPlane();
+     /*!
      * \brief Rotate selected model by angle along Y axis.
      */
     void rotateY();
 
+    void setACut(double factor);
+    void setBCut(double factor);
+    void setCCut(double factor);
+    void setDCut(double factor);
+    void setPlanePosition();
     /*!
      * \brief Rotate selected model by angle along Z axis.
      */
     void rotateZ();
+
+
 
     /*!
      * \brief Set X translation factor.
@@ -511,6 +524,10 @@ private:
     float y_translate;      ///< Y translation factor
     float z_translate;      ///< Z translation factor
     bool rel_translate;     ///< Relative translation
+    float a_cut;
+    float b_cut;
+    float c_cut;
+    float d_cut;
     bool fixall_flag;
     bool exact_flag;
     bool tolerance_flag;
@@ -524,6 +541,9 @@ private:
     bool normal_directions_flag;
     bool normal_values_flag;
     clock_t start_time;
+    bool planeShown;
+    stl_file * plane;
+    float planeMax;
 };
 
 #endif // ADMESHCONTROLLER_H

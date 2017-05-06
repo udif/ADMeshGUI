@@ -29,7 +29,8 @@ SOURCES += main.cpp\
     admeshcontroller.cpp \
     meshobject.cpp \
     historylist.cpp \
-    propertiesdialog.cpp
+    propertiesdialog.cpp \
+    
 
 HEADERS  += window.h \
     data.h \
@@ -43,7 +44,7 @@ HEADERS  += window.h \
 FORMS    += window.ui \
     propertiesdialog.ui
 
-LIBS += -ladmesh -lstlsplit
+LIBS += -ladmesh -lstlsplit -lpoly2tri -lstlcut
 macx {
     LIBS += -lintl
     TARGET = ADMeshGUI

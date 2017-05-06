@@ -3,6 +3,7 @@
 #include "meshobject.h"
 #include <string>
 #include <QVector3D>
+#include <stlcut.h>
 
 using namespace std;
 
@@ -24,6 +25,7 @@ MeshObject::MeshObject()
     references = 0;
     size = 0;
     hidden = false;
+    plane=false;
 }
 
 MeshObject::MeshObject(stl_file* item, QString name)
@@ -34,6 +36,7 @@ MeshObject::MeshObject(stl_file* item, QString name)
     references = 0;
     size = 0;
     hidden = false;
+    plane=false;
     file = name;
     stl_calculate_volume(stl);
     initializeGLFunctions();
@@ -47,6 +50,7 @@ MeshObject::MeshObject(const MeshObject& m) : QGLFunctions()
     hidden = m.hidden;
     file = m.file;
     saved = m.saved;
+    plane =m.plane;
     selected = m.selected;
     stl = new stl_file;
     stl_initialize(stl);
@@ -127,6 +131,15 @@ stl_file* MeshObject::getStlPointer()
 bool MeshObject::isSaved()
 {
     return saved;
+}
+
+bool MeshObject::isPlane()
+{
+    return plane;
+}
+void MeshObject::setPlane()
+{
+    plane=true;
 }
 
 void MeshObject::saveAs(QString fileName, int type)
@@ -253,6 +266,21 @@ void MeshObject::mirrorXZ()
     saved = false;
 }
 
+std::array<stl_file*,2> MeshObject::cut(float a,float b,float c,float d,bool & succes)
+{
+    std::array<stl_file*,2> cutMesh;
+    //cout<<"Volam cut s:"<<a<<" "<<b<<" "<<c<<" "<<d<<endl;
+
+    if(a==b&&b==c&&c==0)
+        cutMesh=stlCut(stl,0,0,1,d,succes);
+    else
+        cutMesh=stlCut(stl,a,b,c,d,succes);
+
+    
+    //stl_rotate_x(stl, angle);
+    //this->updateGeometry();
+    return cutMesh;
+}
 void MeshObject::rotateX(float angle)
 {
     stl_rotate_x(stl, angle);
@@ -313,6 +341,7 @@ void MeshObject::reverseAll()
 
 void MeshObject::repair(int fixall_flag, int exact_flag, int tolerance_flag, float tolerance, int increment_flag, float increment, int nearby_flag, int iterations, int remove_unconnected_flag, int fill_holes_flag, int normal_directions_flag, int normal_values_flag, int reverse_all_flag)
 {
+    
     stl_repair(stl,
                fixall_flag,
                exact_flag,

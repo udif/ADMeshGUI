@@ -4,6 +4,7 @@
 #include <QFileDialog>
 #include <QtWidgets>
 #include <string>
+#include <math.h>
 
 using namespace std;
 
@@ -20,6 +21,11 @@ admeshController::admeshController(QObject *parent) :
     x_translate = 0.0;
     y_translate = 0.0;
     z_translate = 0.0;
+    a_cut=0;
+    b_cut=0;
+    c_cut=1;
+    d_cut=0;
+    planeMax=1;
     rel_translate = true;
     fixall_flag = true;
     exact_flag = false;
@@ -41,6 +47,7 @@ admeshController::admeshController(QObject *parent) :
     history.setLimitSize(settings.value("sizeLimit", HISTORY_LIMIT).toInt());
     openPath = settings.value("openPath", QStandardPaths::standardLocations(QStandardPaths::HomeLocation).at(0)).value<QString>();
     setDrawColor(settings.value("color",QColor(Qt::green)).value<QColor>(), settings.value("badColor",QColor(Qt::red)).value<QColor>());
+    planeShown=false;
 }
 
 admeshController::~admeshController()
@@ -100,7 +107,7 @@ void admeshController::renewListView()
 {
     listModel->clear();
     for(QList<MeshObject*>::size_type i = 0; i < count;i++){        
-        addItemToView(objectList[i]);
+            addItemToView(objectList[i]);
     }
 }
 
@@ -151,11 +158,24 @@ void admeshController::redo()
 
 void admeshController::drawAll(QGLShaderProgram *program)
 {
+
+    program->setUniformValue("plane", false);
     if(mode == 0){
         glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
         program->setUniformValue("differ_hue", true);
         for(QList<MeshObject*>::size_type i = 0; i < count;i++){
             if(objectList[i]->isActive()){
+                //if(objectList[i]->getName()=="plane")
+                if(objectList[i]->isPlane())
+                {
+
+                    program->setUniformValue("plane", true);
+                    glEnable(GL_BLEND);
+                    objectList[i]->drawGeometry(program);
+                    glDisable(GL_BLEND);
+                    program->setUniformValue("plane", false);
+                    continue;
+                }
                 program->setUniformValue("color", color);
                 program->setUniformValue("badColor", badColor);
             }else if(!objectList[i]->isHidden()){
@@ -184,6 +204,7 @@ void admeshController::drawAll(QGLShaderProgram *program)
     }else if(mode == 2){
         glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
         for(QList<MeshObject*>::size_type i = 0; i < count;i++){
+
             if(objectList[i]->isActive()){
                 program->setUniformValue("color", BLACK);
                 program->setUniformValue("badColor", BLACK);
@@ -201,6 +222,16 @@ void admeshController::drawAll(QGLShaderProgram *program)
         program->setUniformValue("differ_hue", true);
         for(QList<MeshObject*>::size_type i = 0; i < count;i++){
             if(objectList[i]->isActive()){
+                //if(objectList[i]->getName()=="plane")
+                if(objectList[i]->isPlane())
+                {
+                    program->setUniformValue("plane", true);
+                    glEnable(GL_BLEND);
+                    objectList[i]->drawGeometry(program);
+                    glDisable(GL_BLEND);
+                    program->setUniformValue("plane", false);
+                    continue;
+                }
                 program->setUniformValue("color", color);
                 program->setUniformValue("badColor", badColor);
             }else if(!objectList[i]->isHidden()){
@@ -366,7 +397,8 @@ QString admeshController::getInfo()
     bool initialized = false;
     float* arr;
     for(QList<MeshObject*>::size_type i = 0; i < count;i++){
-        if(objectList[i]->isActive()){
+        if(objectList[i]->isActive() && !objectList[i]->isPlane())//objectList[i]->getName()!="plane"){
+        {
             arr = objectList[i]->getInfo();
             if(!initialized){
                 minx = arr[0];
@@ -408,6 +440,7 @@ QString admeshController::getInfo()
         sizex = maxx - minx;
         sizey = maxy - miny;
         sizez = maxz - minz;
+        planeMax=max(abs(maxx),abs(maxy))*1.41;
     }
     if(initialized){
         QTextStream(&text) << "<tr><td width=\"60%\" class=\"desc\">"<<_("Objects selected:")<<"</td><td width=\"40%\">"<<objects<<"</td></tr>" <<
@@ -700,6 +733,7 @@ void admeshController::scale()
         #ifdef QT_DEBUG
             start_time = clock();
         #endif
+        bool deselected=deselectPlane();
         renewList();
         for(QList<MeshObject*>::size_type i = 0; i < count;i++){
             if(objectList[i]->isActive())objectList[i]->scale(versor);
@@ -710,7 +744,9 @@ void admeshController::scale()
         #ifdef QT_DEBUG
             cout << "Scale took " << (clock()-start_time)/(double)CLOCKS_PER_SEC << "s" << endl;
         #endif
+        setPlaneSelection(deselected);
     }
+
     reDrawSignal();
 }
 
@@ -719,6 +755,7 @@ void admeshController::mirrorXY()
     #ifdef QT_DEBUG
         start_time = clock();
     #endif
+    bool deselected=deselectPlane();
     renewList();
     for(QList<MeshObject*>::size_type i = 0; i < count;i++){
         if(objectList[i]->isActive())objectList[i]->mirrorXY();
@@ -729,6 +766,7 @@ void admeshController::mirrorXY()
     #ifdef QT_DEBUG
         cout << "Mirror XY took " << (clock()-start_time)/(double)CLOCKS_PER_SEC << "s" << endl;
     #endif
+    setPlaneSelection(deselected);
     reDrawSignal();
 }
 
@@ -737,6 +775,7 @@ void admeshController::mirrorYZ()
     #ifdef QT_DEBUG
         start_time = clock();
     #endif
+    bool deselected=deselectPlane();
     renewList();
     for(QList<MeshObject*>::size_type i = 0; i < count;i++){
         if(objectList[i]->isActive())objectList[i]->mirrorYZ();
@@ -747,6 +786,7 @@ void admeshController::mirrorYZ()
     #ifdef QT_DEBUG
         cout << "Mirror YZ took " << (clock()-start_time)/(double)CLOCKS_PER_SEC << "s" << endl;
     #endif
+    setPlaneSelection(deselected);
     reDrawSignal();
 }
 
@@ -755,6 +795,7 @@ void admeshController::mirrorXZ()
     #ifdef QT_DEBUG
         start_time = clock();
     #endif
+    bool deselected=deselectPlane();
     renewList();
     for(QList<MeshObject*>::size_type i = 0; i < count;i++){
         if(objectList[i]->isActive())objectList[i]->mirrorXZ();
@@ -765,6 +806,7 @@ void admeshController::mirrorXZ()
     #ifdef QT_DEBUG
         cout << "Mirror XZ took " << (clock()-start_time)/(double)CLOCKS_PER_SEC << "s" << endl;
     #endif
+    setPlaneSelection(deselected);
     reDrawSignal();
 }
 
@@ -773,12 +815,259 @@ void admeshController::setRot(double angle)
     rot = (float)angle;
 }
 
+
+void admeshController::resetPlane()
+{
+   stl_facet facet1;
+   stl_facet facet2;
+   stl_vertex tmp;
+   float a=planeMax;
+   tmp.x=a;
+   tmp.y=-a;
+   tmp.z=0.0;
+   facet1.vertex[0]=tmp;
+   facet2.vertex[0]=tmp;
+   tmp.y=a;
+   facet1.vertex[1]=tmp;
+   tmp.x=-a;
+   facet1.vertex[2]=tmp;
+   facet2.vertex[1]=tmp;
+   tmp.y=-a;
+   facet2.vertex[2]=tmp;
+   plane->facet_start[0] = facet1;
+   stl_facet_stats(plane, facet1, 1);
+   plane->facet_start[1] = facet2;
+   stl_facet_stats(plane, facet2, 0);
+
+}
+void admeshController::showPlane()
+{
+    /*
+    potrbeuju addnout nebo removnout plane
+    potrebuju ji scalnout, aby byla velka podle modelu
+    stl_stats.size vraci boundig box
+    */
+
+    //if(rel_translate) rel_translate = false;
+    //else rel_translate = true;
+if (!planeShown)
+{
+
+   //stl_file* plane=new stl_file;
+   plane=new stl_file;
+   plane->stats.number_of_facets=2;
+   plane->stats.original_num_facets=0;
+   plane->stats.type = inmemory;
+   plane->v_indices = NULL;
+   plane->v_shared = NULL;
+   plane->neighbors_start = NULL;
+   stl_clear_error(plane);
+   stl_allocate(plane);
+   stl_facet facet1;
+   stl_facet facet2;
+   stl_vertex tmp;
+   float a=0.5;
+   tmp.x=a;
+   tmp.y=-a;
+   tmp.z=0;
+   facet1.vertex[0]=tmp;
+   facet2.vertex[0]=tmp;
+   tmp.y=a;
+   facet1.vertex[1]=tmp;
+   tmp.x=-a;
+   facet1.vertex[2]=tmp;
+   facet2.vertex[1]=tmp;
+   tmp.y=-a;
+   facet2.vertex[2]=tmp;
+   facet1.normal.x = 0;
+   facet1.normal.y = 0;
+   facet1.normal.z = 1;
+   facet2.normal.x = 0;
+   facet2.normal.y = 0;
+   facet2.normal.z = 1;
+
+
+   plane->facet_start[0] = facet1;
+   stl_facet_stats(plane, facet1, 1);
+   plane->facet_start[1] = facet2;
+   stl_facet_stats(plane, facet2, 0);
+   QString name="plane";
+
+   for(QList<MeshObject*>::size_type i = 0; i < count;i++)
+   {
+            //if(objectList[i]->isActive())
+                {
+                    float scale=objectList[i]->getDiameter();
+                    if(scale<0) scale*=-1;
+                    stl_scale(plane,scale*3);
+                    //planeMax=0.5*scale*3;
+                    MeshObject* item = new MeshObject(plane, name);
+                    item->setPlane();
+                    //item->setSplitName((int)1);
+                    objectList.push_back(item);
+                    count+=1;
+                    planeShown=true;
+                    setPlanePosition();
+                    renewListView();
+                    reDrawSignal();
+                    return;
+                }
+    }
+
+        
+    }
+    else
+    {
+     planeShown=false; 
+     for(QList<MeshObject*>::size_type i = 0; i < count;i++){
+            //if(objectList[i]->getName()=="plane")
+            if(objectList[i]->isPlane())
+                {
+                    objectList.erase(objectList.begin() + i);
+                    //objectList.removeAt(i);
+                    delete plane;
+                    count--;
+                    
+                    renewListView();
+                    reDrawSignal();
+                    return;
+                }
+            }   
+    }
+}
+
+
+void admeshController::setACut(double factor)
+{
+    /*
+    musim translatnout o D
+    a rotatnout podle tech dalsich. .prez vypocet
+    */
+    a_cut = factor;
+    setPlanePosition();
+  
+}
+void admeshController::setBCut(double factor)
+{
+    b_cut = factor;
+    setPlanePosition();
+}
+void admeshController::setCCut(double factor)
+{
+    c_cut = factor;
+    setPlanePosition();
+}
+void admeshController::setDCut(double factor)
+{
+    d_cut = factor;
+    setPlanePosition();
+    /*
+        for(QList<MeshObject*>::size_type i = 0; i < count;i++)
+    {
+        if(objectList[i]->getName()=="plane")
+        {
+            objectList[i]->center();
+            objectList[i]->translate(true, 0, 0, d_cut); 
+            reDrawSignal();
+            //pushHistory();
+            return;
+        }
+    }
+    */
+}
+
+void admeshController::setPlanePosition()
+{
+    //cout<<a_cut<<" "<<b_cut<<" "<<c_cut<<" "<<d_cut<<endl;
+        for(QList<MeshObject*>::size_type i = 0; i < count;i++)
+    {
+        //if(objectList[i]->getName()=="plane")
+        if(objectList[i]->isPlane())
+        {
+            const float PI=3.14159265;
+            //objectList[i]->center();
+            resetPlane();
+            objectList[i]->translate(true, 0, 0, d_cut); 
+            double length=sqrt(a_cut*a_cut+b_cut*b_cut+c_cut*c_cut);
+            double rotY=acos(c_cut/length);
+            double rotZ=atan2(b_cut,a_cut);
+            objectList[i]->rotateY(rotY*180/PI);
+            objectList[i]->rotateZ(rotZ*180/PI);
+            objectList[i]->updateGeometry();
+
+
+            reDrawSignal();
+            //pushHistory();
+            return;
+        }
+    }
+}  
+
+
+
+
+void admeshController::cut()
+{
+    //if(rot != 0.0){
+        #ifdef QT_DEBUG
+            start_time = clock();
+        #endif
+        renewList();
+        for(QList<MeshObject*>::size_type i = 0; i < count;i++){
+            if(objectList[i]->isActive() && !objectList[i]->isPlane())//objectList[i]->getName()!="plane")
+                {
+                    std::array<stl_file*,2> cutMesh;
+                    bool succes=false;
+                    cutMesh=objectList[i]->cut(a_cut,b_cut,c_cut,d_cut,succes);
+                    if(succes)
+                    {
+                        for (int m = 0; m < 2; ++m)
+                        {
+                            MeshObject* item = new MeshObject(cutMesh[m], objectList[i]->getName());
+                            item->setSplitName((int)m);
+                            item->setDeselected();
+                            objectList.push_back(item);
+                        }
+                        count+=2;
+
+                        delete objectList[i];
+                        objectList.erase(objectList.begin() + i);
+                        --count;
+                        --i;
+                        
+                        //cout<<a_cut<<" "<<b_cut<<" "<<c_cut<<" "<<d_cut<<endl;
+                        statusBar->setText(QString("Status: Cut succesful."));
+                        renewListView();
+                    }
+                    else
+                    {
+                        statusBar->setText(QString("Status: Cut failed."));
+                    //break;
+                    }
+                    
+                }
+                
+        }
+        //int rotated = selectedCount();
+        //if(rotated>0)
+        //statusBar->setText(QString(ngettext("Status: %1 mesh CUT along X axis", "Status: %1 meshes rotated along X axis", rotated)).arg(rotated));
+        pushHistory();
+        #ifdef QT_DEBUG
+            cout << "Cut took " << (clock()-start_time)/(double)CLOCKS_PER_SEC << "s" << endl;
+        #endif
+    //}
+    showPlane();
+    showPlane();
+    reDrawSignal();
+}
+
 void admeshController::rotateX()
 {
     if(rot != 0.0){
         #ifdef QT_DEBUG
             start_time = clock();
         #endif
+        bool deselected=deselectPlane();
         renewList();
         for(QList<MeshObject*>::size_type i = 0; i < count;i++){
             if(objectList[i]->isActive())objectList[i]->rotateX(rot);
@@ -789,9 +1078,12 @@ void admeshController::rotateX()
         #ifdef QT_DEBUG
             cout << "Rotate X took " << (clock()-start_time)/(double)CLOCKS_PER_SEC << "s" << endl;
         #endif
+        setPlaneSelection(deselected);
     }
+
     reDrawSignal();
 }
+
 
 void admeshController::rotateY()
 {
@@ -799,6 +1091,7 @@ void admeshController::rotateY()
         #ifdef QT_DEBUG
             start_time = clock();
         #endif
+        bool deselected=deselectPlane();   
         renewList();
         for(QList<MeshObject*>::size_type i = 0; i < count;i++){
             if(objectList[i]->isActive())objectList[i]->rotateY(rot);
@@ -809,7 +1102,9 @@ void admeshController::rotateY()
         #ifdef QT_DEBUG
             cout << "Rotate Y took " << (clock()-start_time)/(double)CLOCKS_PER_SEC << "s" << endl;
         #endif
+        setPlaneSelection(deselected);  
     }
+   
     reDrawSignal();
 }
 
@@ -819,9 +1114,10 @@ void admeshController::rotateZ()
         #ifdef QT_DEBUG
             start_time = clock();
         #endif
+        bool deselected=deselectPlane();  
         renewList();
         for(QList<MeshObject*>::size_type i = 0; i < count;i++){
-            if(objectList[i]->isActive())objectList[i]->rotateZ(rot);
+            if(objectList[i]->isActive() && !objectList[i]->isPlane())objectList[i]->rotateZ(rot);
         }
         int rotated = selectedCount();
         if(rotated>0)statusBar->setText(QString(ngettext("Status: %1 mesh rotated along Z axis", "Status: %1 meshes rotated along Z axis", rotated)).arg(rotated));
@@ -829,7 +1125,9 @@ void admeshController::rotateZ()
         #ifdef QT_DEBUG
             cout << "Rotate Z took " << (clock()-start_time)/(double)CLOCKS_PER_SEC << "s" << endl;
         #endif
+        setPlaneSelection(deselected);
     }
+
     reDrawSignal();
 }
 
@@ -860,9 +1158,11 @@ void admeshController::translate()
         #ifdef QT_DEBUG
             start_time = clock();
         #endif
+        bool deselected=deselectPlane(); 
         renewList();
         for(QList<MeshObject*>::size_type i = 0; i < count;i++){
-            if(objectList[i]->isActive())objectList[i]->translate(rel_translate, x_translate, y_translate, z_translate);
+            if(objectList[i]->isActive())
+                objectList[i]->translate(rel_translate, x_translate, y_translate, z_translate);
         }
         int translated = selectedCount();
         if(translated>0 && rel_translate)statusBar->setText(QString(ngettext("Status: %1 mesh translated relatively to position", "Status: %1 meshes translated relatively to position", translated)).arg(translated));
@@ -871,7 +1171,9 @@ void admeshController::translate()
         #ifdef QT_DEBUG
             cout << "Translate took " << (clock()-start_time)/(double)CLOCKS_PER_SEC << "s" << endl;
         #endif
+        setPlaneSelection(deselected);
     }
+
     reDrawSignal();
 }
 
@@ -889,13 +1191,16 @@ void admeshController::center()
 
 void admeshController::snapZ()
 {
+    bool deselected=deselectPlane();
     renewList();
-    for(QList<MeshObject*>::size_type i = 0; i < count;i++){
-        if(objectList[i]->isActive())objectList[i]->snapZ();
-    }
     int snapped = selectedCount();
+    for(QList<MeshObject*>::size_type i = 0; i < count;i++){
+        if(objectList[i]->isActive() )objectList[i]->snapZ();
+    }
+
     statusBar->setText(QString(ngettext("Status: %1 mesh snapped to Z", "Status: %1 meshes snapped to Z", snapped)).arg(snapped));
     pushHistory();
+    setPlaneSelection(deselected); 
     reDrawSignal();
 }
 
@@ -970,11 +1275,40 @@ void admeshController::setNormalValFlag()
     normal_values_flag = !normal_values_flag;
 }
 
+bool admeshController::deselectPlane()
+{
+    for(QList<MeshObject*>::size_type i = count-1; i >=0;i--)
+        {
+            if(objectList[i]->isPlane())
+            {
+                if(objectList[i]->isSelected())    
+                {
+                    objectList[i]->setDeselected();
+                    return true;  
+                }
+                else return false;
+            }
+        }
+        return false;
+}
+void admeshController::setPlaneSelection(bool select)
+{
+    for(QList<MeshObject*>::size_type i = count-1; i >=0;i--)
+        {
+            if(objectList[i]->isPlane())
+            {
+                  if(select) objectList[i]->setSelected();
+                  else       objectList[i]->setDeselected();
+            }
+        } 
+}
+
 void admeshController::repair()
 {
     #ifdef QT_DEBUG
         start_time = clock();
     #endif
+     bool deselected=deselectPlane();    
     renewList();
     for(QList<MeshObject*>::size_type i = 0; i < count;i++){
         if(objectList[i]->isActive())objectList[i]->repair(fixall_flag,
@@ -997,6 +1331,11 @@ void admeshController::repair()
     #ifdef QT_DEBUG
         cout << "Repair took " << (clock()-start_time)/(double)CLOCKS_PER_SEC << "s" << endl;
     #endif
+        for(QList<MeshObject*>::size_type i = count-1; i >=0;i--)
+        {
+             if(objectList[i]->isPlane()) {objectList[i]->setSelected(); break;}
+        }  
+    setPlaneSelection(deselected);
     reDrawSignal();
 }
 
@@ -1032,7 +1371,18 @@ void stl_merge(stl_file *stl, stl_file *stl_to_merge) {
 
 void admeshController::merge()
 {
-    if(selectedCount()<2){
+    for(QList<MeshObject*>::size_type i = 0; i < count;i++)
+    {
+        if(objectList[i]->isPlane() && objectList[i]->isActive())
+        {
+            QString msg;
+            QTextStream(&msg) << _("You cant merge models with cutting plane, unselect it.\n");
+            QMessageBox::warning(NULL, _("Warning"), msg);
+            return;
+        }
+
+    }
+    if(selectedCount()<2 ){
         QString msg;
         QTextStream(&msg) << _("Not enough files to merge selected.\n");
         QMessageBox::warning(NULL, _("Warning"), msg);
@@ -1084,6 +1434,7 @@ void admeshController::split(){
                     objectList.push_back(item);
                     added++;
                 }
+               
                 delete objectList[i];
                 objectList.erase(objectList.begin() + i);
                 --count;
@@ -1105,12 +1456,12 @@ void admeshController::split(){
 }
 
 void admeshController::duplicate()
-{
+{   bool deselected=deselectPlane();
     renewList();
     int added = 0;
     int orig = selectedCount();
     for(QList<MeshObject*>::size_type i = 0; i < count;i++){
-        if(objectList[i]->isActive()){
+        if(objectList[i]->isActive() && !objectList[i]->isPlane()){
             MeshObject *duplicated = new MeshObject(*objectList[i]);
             duplicated->setDuplicatedName();
             objectList.push_back(duplicated);
@@ -1121,5 +1472,6 @@ void admeshController::duplicate()
     renewListView();
     statusBar->setText(QString(ngettext("Status: %1 mesh duplicated", "Status: %1 meshes duplicated", orig)).arg(orig));
     pushHistory();
+    setPlaneSelection(deselected);
     reDrawSignal();
 }
