@@ -266,20 +266,23 @@ void MeshObject::mirrorXZ()
     saved = false;
 }
 
-std::array<stl_file*,2> MeshObject::cut(float a,float b,float c,float d,bool & succes)
+std::array<stl_file*,2> MeshObject::cut(float a,float b,float c,float d,bool & success)
 {
-    std::array<stl_file*,2> cutMesh;
-    //cout<<"Volam cut s:"<<a<<" "<<b<<" "<<c<<" "<<d<<endl;
-
-    if(a==b&&b==c&&c==0)
-        cutMesh=stlCut(stl,0,0,1,d,succes);
+    std::array<stl_file*,2> cutMesh; 
+    stl_plane plane = stl_plane(0, 0, 1, d);
+    if(!(c==0 && b == 0 && a == 0))
+        plane = stl_plane(a, b, c, d);
+    Mesh mesh;
+    mesh.setStl(*stl);
+    if(mesh.cut(plane))
+    {
+        cutMesh = mesh.getFinalStls();
+        success = true;
+    }
     else
-        cutMesh=stlCut(stl,a,b,c,d,succes);
-
-    
-    //stl_rotate_x(stl, angle);
-    //this->updateGeometry();
-    return cutMesh;
+        success = false;
+  
+    return{cutMesh[0],cutMesh[1]};
 }
 void MeshObject::rotateX(float angle)
 {
