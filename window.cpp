@@ -76,6 +76,15 @@ Window::Window(QWidget *parent) :
     connect(ui->fixAllBox, SIGNAL(stateChanged(int)), controller, SLOT(setFixAllFlag()));
     connect(ui->repairButton, SIGNAL(clicked()), controller, SLOT(repair()));
 
+    //connect(ui->cutXButton, SIGNAL(clicked()), controller, SLOT(cutX()));
+    //connect(ui->cutYButton, SIGNAL(clicked()), controller, SLOT(cutY()));
+
+    connect(ui->showPlaneBox, SIGNAL(stateChanged(int)), controller, SLOT(showPlane()));
+    connect(ui->CutButton, SIGNAL(clicked()), controller, SLOT(cut()));
+    connect(ui->CutABox, SIGNAL(valueChanged(double)), controller, SLOT(setACut(double)));
+    connect(ui->CutBBox, SIGNAL(valueChanged(double)), controller, SLOT(setBCut(double)));
+    connect(ui->CutCBox, SIGNAL(valueChanged(double)), controller, SLOT(setCCut(double)));
+    connect(ui->CutDBox, SIGNAL(valueChanged(double)), controller, SLOT(setDCut(double)));
     readSettings();
 }
 

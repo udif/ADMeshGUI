@@ -4,6 +4,7 @@ uniform sampler2D texture;
 uniform vec3 color;
 uniform vec3 badColor;
 uniform bool differ_hue;
+uniform bool plane;
 varying vec3 v_normal;
 
 void main()
@@ -17,4 +18,8 @@ void main()
      } else {
         gl_FragColor = vec4(badColor*factor, 1.0);
      }
+
+     if(plane)
+     	gl_FragColor = vec4(0.5, 0.2, 0.9, 0.4);
+
 }

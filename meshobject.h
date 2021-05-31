@@ -118,6 +118,12 @@ public:
      */
     bool isSaved();
 
+     /*!
+     * \brief True if mesh is cutting plane.
+     */
+    bool isPlane();
+    void setPlane();
+
     /*!
      * \brief Export mesh as OFF, VRML, DXF or OBJ.
      * \param filename Exported filename.
@@ -150,6 +156,7 @@ public:
      * \brief Rotate stl file along X axis.
      * \param angle Angle of rotation.
      */
+    std::array<stl_file*,2>  cut(float a,float b,float c,float d,bool & succes);
     void rotateX(float angle);
 
     /*!
@@ -293,6 +300,7 @@ private:
     QString file;     ///< File name
     unsigned int references;    ///< Count if references - how many history items use this object.
     unsigned long size;
+    bool plane;
 };
 
 #endif // MESHOBJECT_H
