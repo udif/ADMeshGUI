@@ -18,6 +18,10 @@ jobs:
       run: git clone https://github.com/udif/admesh.git && cd admesh && ./autogen.sh && ./configure  && make && sudo make install
     - name: stlsplit
       run: git clone https://github.com/admesh/stlsplit && cd stlsplit && premake4 gmake && make && sudo cp stlsplit.h /usr/local/include && sudo cp -P build/libstlsplit.so* /usr/local/lib && sudo ldconfig
+    - name: poly2tri
+      run: git clone https://github.com/udif/poly2tri && cd poly2tri && mkdir build && cd build && cmake .. && make && sudo make install
+    - name: STL_CUT
+      run: git clone https://github.com/udif/STL_CUT && cd STL_CUT && git checkout pr_cmake && mkdir build && cd build && cmake .. && make && sudo make install
     - name: qmake
       run: qmake
     - name: make
