@@ -34,7 +34,6 @@ SOURCES += main.cpp\
     meshobject.cpp \
     historylist.cpp \
     propertiesdialog.cpp \
-    
 
 HEADERS  += window.h \
     data.h \
